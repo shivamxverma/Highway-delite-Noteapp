@@ -1,5 +1,5 @@
 import express from 'express';
-import connectDB from './configs/db.config';
+import connectDB from './configs/db.config.ts';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
