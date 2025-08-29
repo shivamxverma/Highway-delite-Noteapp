@@ -1,27 +1,37 @@
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import dotenv from 'dotenv';
 
-const app = express();
+dotenv.config();
+
+const app : Application = express();
 
 app.set('trust proxy', 1);
 
-const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:3000', 
-  credentials: true, 
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-};
-
-app.use(cors(corsOptions));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const allowedOrigins = ["http://localhost:5173"];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
 app.use(express.json({limit: '16kb'}));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(express.static('public'));
 app.use(cookieParser());
 
-import userRoutes from './routes/user.routes';
-import noteRoutes from './routes/note.routes';
+import userRoutes from './routes/user.routes.js';
+import noteRoutes from './routes/note.routes.js';
 
 app.use('/api/v1/notes', noteRoutes);
 

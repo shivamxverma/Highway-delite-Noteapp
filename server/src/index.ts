@@ -1,8 +1,7 @@
-import express from 'express';
-import connectDB from './configs/db.config.ts';
+import connectDB from './configs/db.config.js';
+import {app} from './app.js';
 
-const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = 8000;
 
 connectDB()
 

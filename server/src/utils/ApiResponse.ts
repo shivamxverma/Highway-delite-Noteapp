@@ -1,6 +1,4 @@
-interface ApiResponseData {
-    [key: string]: any;
-}
+type ApiResponseData = Record<string, unknown>;
 
 class ApiResponse {
     statusCode: number;
