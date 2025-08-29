@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { supabase } from '../api/supabase';
 import { useNavigate } from 'react-router-dom';
-import { generateOTP,login } from '../api/api';
+import { generateOTP,login,googleLogin } from '../api/api';
 
 interface FormData {
   email: string;
@@ -93,15 +93,31 @@ const LoginForm: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/dashboard', // Redirect after successful login
-        scopes: 'email profile', // Request email and profile scopes
-      },
-    });
-    if (error) {
-      alert(`Error: ${error.message}`);
+    try {
+      const result = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+          scopes: 'email profile',
+        },
+      });
+      const { data, error } = result || {};
+
+      if (error) {
+        alert(`Error: ${error.message}`);
+        return;
+      }
+
+      if (data && data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to initiate Google OAuth login.');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      if (error instanceof Error) {
+        alert(`Error: ${error.message}`);
+      }
     }
   };
 

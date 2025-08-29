@@ -1,6 +1,12 @@
 import axios from "axios";
 
+// const accessToken = localStorage.getItem("accessToken");
+
 const BASE_URL = "http://localhost:8000/api/v1"; 
+
+export const googleLogin = async(idToken : string) => {
+    return axios.post(`${BASE_URL}/users/auth/google`, { idToken }, { withCredentials: true });
+}
 
 export const generateOTP = async(email : string) => {
     return axios.post(`${BASE_URL}/users/generateotp`, { email }, { withCredentials: true });

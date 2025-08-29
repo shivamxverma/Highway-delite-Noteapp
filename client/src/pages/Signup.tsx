@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase } from '../api/supabase';
 import { generateOTP,register } from '../api/api';
 import { useNavigate } from 'react-router-dom';
+import { googleLogin } from '../api/api';
 
 interface FormData {
   name: string;
@@ -107,6 +108,21 @@ const SignUpForm: React.FC = () => {
         redirectTo: window.location.origin,
       },
     });
+
+    if (data) {
+      try {
+        const idToken = data.url?.split('access_token=')[1].split('&')[0];
+        if (idToken) {
+          const response = await googleLogin(idToken);
+          console.log(response.data);
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error('Google login error:', error);
+        alert('Google login failed. Please try again.');
+      }
+    }
+    
     if (error) {
       alert(`Error: ${error.message}`);
     }

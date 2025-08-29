@@ -173,13 +173,13 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
 })
 
 const googleAuth = asyncHandler(async (req: Request, res: Response) => {
-    const { access_token } = req.body;
-    if (!access_token) {
+    const { idToken } = req.body;
+    if (!idToken) {
         throw new ApiError(400, "Access token is required");
     }
 
     const response = await axios.get(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-        headers: { Authorization: `Bearer ${access_token}` },
+        headers: { Authorization: `Bearer ${idToken}` },
     });
 
     const { user_metadata, email, id: google_id } = response.data as {
