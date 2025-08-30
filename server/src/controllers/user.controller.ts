@@ -52,7 +52,6 @@ const generateAccessTokenAndRefreshToken = (user: userPayload) => {
 
 const generateOTP = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
-    console.log("Generating OTP for email:", email);
     if (!email) {
         throw new ApiError(400, "Email is required");
     }
@@ -80,7 +79,6 @@ const generateOTP = asyncHandler(async (req: Request, res: Response) => {
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
     const { email, name, dob, otp } = req.body;
-    console.log("Registering user with email:", req.body);
 
     if (!name || !email || !dob || !otp) {
         throw new ApiError(400, "Name, Email and Date of Birth are required");
