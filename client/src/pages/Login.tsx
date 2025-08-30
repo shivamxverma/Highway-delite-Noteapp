@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { supabase } from '../api/supabase';
-import { useNavigate } from 'react-router-dom';
 import { generateOTP, login, googleLogin } from '../api/api';
 
 interface FormData {
@@ -27,7 +26,6 @@ const LoginForm: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [isOtpSent, SetIsOtpSent] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -48,8 +46,8 @@ const LoginForm: React.FC = () => {
 
             if (responseToken) {
               localStorage.setItem('token', responseToken);
-              // alert("Google Login Successful!");
-              // window.location.replace('/');
+              alert("Google Login Successful!");
+              window.location.replace('/');
             } else {
                alert("Login with Google succeeded, but failed to get session from our server.");
             }
