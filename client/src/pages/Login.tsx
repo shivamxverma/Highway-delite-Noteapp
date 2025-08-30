@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { supabase } from '../api/supabase';
 import { useNavigate } from 'react-router-dom';
-import { generateOTP,login,googleLogin } from '../api/api';
+import { generateOTP, login, googleLogin } from '../api/api';
 
 interface FormData {
   email: string;
@@ -26,7 +26,7 @@ const LoginForm: React.FC = () => {
     otp: "",
   });
   const [isMobile, setIsMobile] = useState(false);
-  const [isOtpSent,SetIsOtpSent] = useState(false);
+  const [isOtpSent, SetIsOtpSent] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +34,36 @@ const LoginForm: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user.app_metadata.provider === 'google') {
+        const accessToken = session.access_token;
+        if (accessToken) {
+          try {
+            console.log("Calling backend with Google access token...");
+            const response = await googleLogin(accessToken);
+            const responseToken = response.data.data.accessToken;
+
+            if (responseToken) {
+              localStorage.setItem('token', responseToken);
+              // alert("Google Login Successful!");
+              // window.location.replace('/');
+            } else {
+               alert("Login with Google succeeded, but failed to get session from our server.");
+            }
+          } catch (error) {
+            console.error("Error calling backend after Google login:", error);
+            alert("Failed to complete Google sign-in with our server.");
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,9 +105,7 @@ const LoginForm: React.FC = () => {
         if (response.data && response.data.data && response.data.data.accessToken) {
           localStorage.setItem('accessToken', response.data.data.accessToken);
           alert("Login Successful");
-          setTimeout(() => {
-            navigate('/');
-          }, 1500);
+          window.location.replace('http://localhost:5173');
         } else {
           alert("Login failed: Invalid response from server.");
         }
@@ -90,10 +118,7 @@ const LoginForm: React.FC = () => {
         }
       }
     } else {
-      const newErrors: Record<keyof FormData, string> = {
-        email: "",
-        otp: "",
-      };
+      const newErrors: Record<keyof FormData, string> = { email: "", otp: "" };
       validation.error.issues.forEach((error) => {
         newErrors[error.path[0] as keyof FormData] = error.message;
       });
@@ -103,26 +128,19 @@ const LoginForm: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
-        }
+          redirectTo: window.location.origin, 
+        },
       });
 
-      if (data && data.url) {
-        window.location.href = data.url;
-      } else if (error) {
-        alert('Failed to initiate Google OAuth login.');
-      } else {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-        if (accessToken) {
-          await googleLogin(accessToken);
-        }
+      if (error) {
+        console.error('Google OAuth initiation error:', error);
+        alert(`Failed to initiate Google login: ${error.message}`);
       }
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error('An unexpected error occurred during Google login initiation:', error);
       if (error instanceof Error) {
         alert(`Error: ${error.message}`);
       }
@@ -198,6 +216,7 @@ const LoginForm: React.FC = () => {
             <div className="text-center">
               <p className="text-gray-500 text-xs">Or sign in with</p>
               <button
+                type="button"
                 className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
                 onClick={handleGoogleLogin}
               >

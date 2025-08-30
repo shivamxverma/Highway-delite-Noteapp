@@ -20,11 +20,15 @@ export const verifyJWT = asyncHandler(async (req: Request, res: Response, next: 
             ? req.headers.authorization.split(' ')[1]
             : req.cookies?.accessToken;
 
+        // console.log("Verifying JWT Token:", token);
+
         if (!token) {
             throw new ApiError(401, 'Unauthorized Request: No token provided');
         }
 
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
+
+        console.log("Decoded JWT Token:", decodedToken);
 
         let userId: string | undefined;
         if (typeof decodedToken === 'object' && decodedToken !== null && '_id' in decodedToken) {

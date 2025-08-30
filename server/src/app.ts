@@ -12,7 +12,7 @@ app.set('trust proxy', 1);
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = ["https://highway-delite-noteapp.vercel.app"];
+      const allowedOrigins = ["http://localhost:5173", "https://highway-delite-noteapp.vercel.app"];
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin);
       } else {

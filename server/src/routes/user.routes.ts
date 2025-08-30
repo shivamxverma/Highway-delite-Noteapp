@@ -8,7 +8,7 @@ const router = Router();
 router.post("/login", loginUser);
 router.post("/register", registerUser);
 router.post("/generateotp", otpRateLimiter, generateOTP);
-router.get("/auth/google", googleAuth);
+router.post("/auth/google", googleAuth);
 router.get("/refresh", refreshAccessToken);
 router.post("/logout",verifyJWT, logoutUser);
 

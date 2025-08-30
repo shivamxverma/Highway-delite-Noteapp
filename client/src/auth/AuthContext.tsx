@@ -4,9 +4,14 @@ import { jwtDecode } from "jwt-decode";
 import { supabase } from "../api/supabase";
 
 type JwtPayload = {
-  _id: string;
-  name: string;
-  email: string;
+  _id?: string;
+  sub?: string;
+  name?: string;
+  email?: string;
+  user_metadata?: {
+    full_name?: string;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 };
 
@@ -37,7 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setUserFromToken = useCallback((token: string) => {
     try {
       const payload = jwtDecode<JwtPayload>(token);
-      setUser({ id: payload._id , name: payload.name , email : payload.email});
+      setUser({ 
+        id: (payload._id || payload.sub) ?? "", 
+        name: (payload.name || payload.user_metadata?.full_name) ?? "", 
+        email: payload.email ?? "" 
+      });
       localStorage.setItem("accessToken", token);
     } catch (error) {
       console.error("Failed to decode token:", error);

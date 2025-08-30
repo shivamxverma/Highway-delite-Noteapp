@@ -8,6 +8,8 @@ import jwt from 'jsonwebtoken';
 import { sendVerificationEmail } from "../services/email.service.js";
 import otpModel from "../models/otp.model.js";
 import bcrypt from 'bcryptjs';
+import dotenv from "dotenv";
+dotenv.config();
 
 interface userPayload {
     _id?: string;
@@ -182,51 +184,66 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
 
 const googleAuth = asyncHandler(async (req: Request, res: Response) => {
     const { idToken } = req.body;
-    console.log(idToken);
     if (!idToken) {
-        throw new ApiError(400, "Access token is required");
+        throw new ApiError(400, "Supabase access token is required");
     }
 
-    const response = await axios.get(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-        headers: { Authorization: `Bearer ${idToken}` },
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const finalUrl = `${supabaseUrl}/auth/v1/user`;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+    console.log("Supabase URL:", finalUrl);
+    console.log("Supabase Service Key:", supabaseServiceKey);
+
+    if (!finalUrl || !supabaseServiceKey) {
+        throw new ApiError(500, "Supabase environment variables are not set");
+    }
+
+    const response = await axios.get(finalUrl, {
+        headers: {
+            'apikey': supabaseServiceKey,
+            'Authorization': `Bearer ${idToken}`
+        },
     });
 
-    const { user_metadata, email, id: google_id } = response.data as {
+    console.log(response.data);
+
+    const { user_metadata, email, id: supabase_id } = response.data as {
         user_metadata?: { full_name?: string; name?: string, dob?: string };
         email?: string;
         id?: string;
     };
-    const name = user_metadata?.full_name || user_metadata?.name || 'User';
 
-    if (!email) {
-        throw new ApiError(400, "Google authentication failed: Email not found");
+    if (!email || !supabase_id) {
+        throw new ApiError(400, "Google authentication failed: Email or User ID not found in token");
     }
+
+    const name = user_metadata?.full_name || user_metadata?.name || 'User';
 
     let user = await userModel.findOne({ email });
 
     if (!user) {
-        user = new userModel({
+        user = await userModel.create({
             email,
-            google_id,
+            supabase_id,
             name,
             isVerified: true,
-            dob: user_metadata?.dob ? new Date(user_metadata.dob) : new Date()
+            dob: user_metadata?.dob ? new Date(user_metadata.dob) : undefined
         });
-        await user.save();
-    } else if (user.google_id !== google_id) {
-        user.google_id = google_id;
-        await user.save();
+    } else {
+        if (!user.google_id) {
+            user.google_id = supabase_id;
+            await user.save({ validateBeforeSave: false });
+        }
     }
 
     const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken({
-        _id: user._id as string,
-        email,
-        name,
-        google_id,
-        dob: user?.dob ?? new Date()
+        _id: user._id as string | undefined,
+        email: user.email,
+        name: user.name,
+        google_id: user.google_id,
+        dob: user.dob
     });
-
-    console.log(accessToken, refreshToken);
 
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -235,15 +252,10 @@ const googleAuth = asyncHandler(async (req: Request, res: Response) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 24 * 60 * 60 * 1000
-    })
-
-    return res.status(200).json(new ApiResponse(200, "Google authentication successful", { email, accessToken }));
-})
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Google authentication successful", { accessToken }));
+});
 
 const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
     const token = req.cookies.refreshToken;
