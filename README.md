@@ -64,32 +64,32 @@ npm install
 **`server/.env`**
 ```env
 # Server Configuration
-PORT=8080
-CORS_ORIGIN=http://localhost:5173
+PORT=8000
+CLIENT_URL="[https://highway-delite-noteapp.vercel.app/](https://highway-delite-noteapp.vercel.app/)"
 
-# MongoDB Connection
-MONGO_URI=your_mongodb_connection_string
+# JWT Access & Refresh Tokens
+ACCESS_TOKEN_SECRET="your_strong_access_token_secret_key"
+ACCESS_TOKEN_EXPIRY="1d"
+REFRESH_TOKEN_SECRET="your_strong_refresh_token_secret_key"
+REFRESH_TOKEN_EXPIRY="7d"
 
-# JWT Configuration
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=7d
+# Supabase Credentials
+# Get these from your Supabase Project Dashboard > Settings > API
+SUPABASE_URL="your_supabase_project_url"
+SUPABASE_ANON_KEY="your_supabase_anon_public_key"
 
-# Google OAuth Credentials
-# Get them from Google Cloud Console: [https://console.cloud.google.com/](https://console.cloud.google.com/)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_OAUTH_REDIRECT_URL=http://localhost:8080/api/v1/auth/google/callback
+# Redis Connection (if you are using it for caching or sessions)
+REDIS_URL="your_redis_connection_string"
 
-# Nodemailer (for OTP via Email)
-# Use a service like Mailtrap or your own SMTP server
-SMTP_HOST=your_smtp_host
-SMTP_PORT=your_smtp_port
-SMTP_USER=your_smtp_username
-SMTP_PASS=your_smtp_password
-SMTP_FROM_EMAIL="Note App <no-reply@yourapp.com>"
+# Nodemailer for sending OTP/Verification emails
+# Use your email provider's credentials or a service like Mailtrap
+EMAIL="your-email@example.com"
+EMAIL_PASSWORD="your_email_app_password"
 ```
 
 ```bash
+
+
 # Start the backend development server
 npm run dev
 ```
@@ -130,7 +130,7 @@ A brief overview of the core API endpoints. All `/notes` routes are protected.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/users/generateotp` | Sends a one-time password to the user's email. |
+| `POST` | `/api/v1/users/generateotp` | Sends a one-time password to the user's email (Rate limited). |
 | `POST` | `/api/v1/users/register` | Registers a new user with email and verified OTP. |
 | `GET` | `/api/v1/auth/google` | Initiates the Google OAuth login flow. |
 | `GET` | `/api/v1/auth/google/callback` | Callback URL for Google to redirect to after auth. |
