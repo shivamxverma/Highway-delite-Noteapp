@@ -166,6 +166,7 @@ const LoginForm: React.FC = () => {
                 onChange={handleChange}
               />
               {errors.otp && <p className="text-red-500 text-xs italic">{errors.otp}</p>}
+              {isOtpSent && <p className="text-green-500 text-xs italic">OTP sent!</p>}
             </div>
             <div>
               <button
