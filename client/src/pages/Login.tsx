@@ -70,15 +70,24 @@ const LoginForm: React.FC = () => {
     const validation = formSchema.safeParse(formData);
     if (validation.success) {
       try {
-        const response = await login(formData.email,formData.otp);
+        const response = await login(formData.email, formData.otp);
         console.log(response.data);
-        alert("Login Successful");
-
-        setTimeout(()=>{
-          navigate('/');
-        },1500);
-      }catch(error){
-
+        if (response.data && response.data.data && response.data.data.accessToken) {
+          localStorage.setItem('accessToken', response.data.data.accessToken);
+          alert("Login Successful");
+          setTimeout(() => {
+            navigate('/');
+          }, 1500);
+        } else {
+          alert("Login failed: Invalid response from server.");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        if (error instanceof Error) {
+          alert(`Login failed: ${error.message}`);
+        } else {
+          alert("Login failed: An unknown error occurred.");
+        }
       }
     } else {
       const newErrors: Record<keyof FormData, string> = {
@@ -94,24 +103,23 @@ const LoginForm: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard',
-          scopes: 'email profile',
-        },
+          redirectTo: `${window.location.origin}/`
+        }
       });
-      const { data, error } = result || {};
-
-      if (error) {
-        alert(`Error: ${error.message}`);
-        return;
-      }
 
       if (data && data.url) {
         window.location.href = data.url;
-      } else {
+      } else if (error) {
         alert('Failed to initiate Google OAuth login.');
+      } else {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) {
+          await googleLogin(accessToken);
+        }
       }
     } catch (error) {
       console.error('Google login error:', error);

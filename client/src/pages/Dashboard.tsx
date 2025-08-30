@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { z } from 'zod';
-import { getNotes,createNote } from '../api/api';
+import { getNotes, createNote, deleteNote } from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 
 interface Note {
-  id: number;
-  title: string;
-  description: string;
-}
-
-interface FormData {
+  _id: number;
   title: string;
   description: string;
 }
@@ -19,94 +14,88 @@ const formSchema = z.object({
   description: z.string().min(1, { message: "Description is required" }).max(500, { message: "Description can't exceed 500 characters" }),
 });
 
-type FormSchemaType = z.infer<typeof formSchema>;
+type FormData = z.infer<typeof formSchema>;
 
 const Dashboard: React.FC = () => {
-  const [notes, setNotes] = useState<Note[]>([
-    { id: 1, title: "Note 1", description: "Description 1" },
-    { id: 2, title: "Note 2", description: "Description 2" },
-  ]);
-  const { accessToken } = useAuth();
-  const [isMobile, setIsMobile] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const { user, logout } = useAuth();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [formData, setFormData] = useState<FormData>({ title: "", description: "" });
-  const [errors, setErrors] = useState<Record<keyof FormData, string>>({ title: "", description: "" });
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
+  const fetchNotes = useCallback(async () => {
+    try {
+      const response = await getNotes();
+      const notesData = response.data?.data.notes;
+      setNotes(Array.isArray(notesData) ? notesData : []);
+    } catch (error) {
+      console.error("Failed to fetch notes:", error);
+      setNotes([]); 
+    }
+  }, []);
 
   useEffect(() => {
-    async function fetchNotes() {
-      if (accessToken) {
-        try {
-          const response = await getNotes(accessToken);
-          console.log("Fetched notes:", response.data.notes);
-          setNotes(response.data.notes);
-        } catch (error) {
-          console.error("Failed to fetch notes:", error);
-        }
-      } else {
-        console.error("Access token is missing.");
-      }
-    }
     fetchNotes();
-  },[])
+  }, [fetchNotes]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleCreateNote = () => {
-    setIsPopupOpen(true);
-  };
+  const handleOpenPopup = () => setIsPopupOpen(true);
 
   const handleClosePopup = () => {
     setIsPopupOpen(false);
     setFormData({ title: "", description: "" });
-    setErrors({ title: "", description: "" });
+    setErrors({});
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
-
-    const validation = formSchema.shape[id as keyof FormSchemaType].safeParse(value);
-    setErrors((prev) => ({
-      ...prev,
-      [id]: validation.success ? "" : validation.error.issues[0].message,
-    }));
+    setErrors((prev) => ({ ...prev, [id]: undefined }));
   };
 
-  const handleSubmit = async(e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validation = formSchema.safeParse(formData);
     if (validation.success) {
       try {
-        if(accessToken){
-          const response = await createNote(accessToken, formData.title, formData.description)
-          console.log("Note created:", response.data.note);
-          setNotes([...notes, response.data.note]);
-          handleClosePopup();
-        }
+        await createNote(formData.title, formData.description);
+        await fetchNotes(); 
+        handleClosePopup();
       } catch (error) {
         console.error("An error occurred while creating the note:", error);
       }
     } else {
-      const newErrors: Record<keyof FormData, string> = { title: "", description: "" };
-      validation.error.issues.forEach((error) => {
-        newErrors[error.path[0] as keyof FormData] = error.message;
+      const newErrors: Partial<Record<keyof FormData, string>> = {};
+      validation.error.issues.forEach((issue) => {
+        newErrors[issue.path[0] as keyof FormData] = issue.message;
       });
       setErrors(newErrors);
     }
   };
 
-  const handleSignOut = () => {
-    alert("Signed out successfully!");
+  const handleSignOut = async () => {
+    try {
+      await logout();
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Error during sign out:", error);
+      alert("Failed to sign out.");
+    }
   };
 
-  const handleDeleteNote = (id: number) => {
-    setNotes(notes.filter(note => note.id !== id));
+  const handleDeleteNote = async (_id: number) => {
+    try {
+      await deleteNote(_id);
+      setNotes(prevNotes => prevNotes.filter(note => note._id !== _id));
+    } catch (error) {
+      console.error("Error deleting note:", error);
+    }
   };
 
   return (
@@ -125,34 +114,40 @@ const Dashboard: React.FC = () => {
       </header>
       <main className="p-4">
         <div className="bg-white p-4 rounded-lg shadow mb-4">
-          <h2 className="text-xl font-semibold">Welcome, Jonas Kahnwald!</h2>
-          <p className="text-gray-500">Email: xxxxx@xxxx.com</p>
+          <h2 className="text-xl font-semibold">Welcome!</h2>
+          <p className="text-gray-500">{user?.name}</p>
         </div>
         <button
           className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4"
-          onClick={handleCreateNote}
+          onClick={handleOpenPopup}
         >
           Create Note
         </button>
         <div>
           <h3 className="text-lg font-semibold mb-2">Notes</h3>
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              className="flex items-center justify-between bg-white p-2 rounded shadow mb-2"
-            >
-              <div>
-                <span className="font-medium">{note.title}</span>
-                <p className="text-sm text-gray-600">{note.description}</p>
-              </div>
-              <button
-                className="text-red-500 hover:text-red-700"
-                onClick={() => handleDeleteNote(note.id)}
+          {notes.length > 0 ? (
+            notes.map((note) => (
+              <div
+                key={note._id}
+                className="flex items-center justify-between bg-white p-2 rounded shadow mb-2"
               >
-                🗑️
-              </button>
+                <div>
+                  <span className="font-medium">{note.title}</span>
+                  <p className="text-sm text-gray-600">{note.description}</p>
+                </div>
+                <button
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => handleDeleteNote(note._id)}
+                >
+                  🗑️
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="bg-white p-4 rounded shadow text-center text-gray-500">
+              <p>You haven't created any notes yet. Click the button above to get started!</p>
             </div>
-          ))}
+          )}
         </div>
       </main>
 

@@ -6,7 +6,8 @@ import { ApiResponse } from '../utils/ApiResponse';
 
 const otpRateLimiter = async(req : Request ,res : Response,next : NextFunction) => {
     const userId = req.body.email;
-    if(userId){
+    console.log("UserID in OTP Rate Limiter:", userId); 
+    if(!userId){
        throw new ApiError(400,"User Field is Required");
     }
 

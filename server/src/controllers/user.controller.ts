@@ -10,6 +10,7 @@ import otpModel from "../models/otp.model.js";
 import bcrypt from 'bcryptjs';
 
 interface userPayload {
+    _id?: string;
     email: string;
     name: string;
     google_id?: string | undefined;
@@ -24,6 +25,7 @@ const generateRandomOTP = (): string => {
 const generateAccessTokenAndRefreshToken = (user: userPayload) => {
     try {
         const payload = {
+            _id: user._id,
             email: user.email,
             name: user.name,
             dob: user.dob,
@@ -77,7 +79,7 @@ const generateOTP = asyncHandler(async (req: Request, res: Response) => {
 })
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
-    const { email,name, dob, otp } = req.body;
+    const { email, name, dob, otp } = req.body;
     console.log("Registering user with email:", req.body);
 
     if (!name || !email || !dob || !otp) {
@@ -156,6 +158,7 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     await otpRecord.deleteOne();
 
     const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken({
+        _id: user._id as string | undefined,
         email: user.email,
         name: user.name,
         google_id: user.google_id,
@@ -169,11 +172,19 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000
+    })
+
     return res.status(200).json(new ApiResponse(200, "Login Successful", { accessToken }));
 })
 
 const googleAuth = asyncHandler(async (req: Request, res: Response) => {
     const { idToken } = req.body;
+    console.log(idToken);
     if (!idToken) {
         throw new ApiError(400, "Access token is required");
     }
@@ -209,7 +220,15 @@ const googleAuth = asyncHandler(async (req: Request, res: Response) => {
         await user.save();
     }
 
-    const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken({ email, name, google_id, dob: user?.dob ?? new Date() });
+    const { accessToken, refreshToken } = generateAccessTokenAndRefreshToken({
+        _id: user._id as string,
+        email,
+        name,
+        google_id,
+        dob: user?.dob ?? new Date()
+    });
+
+    console.log(accessToken, refreshToken);
 
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -217,6 +236,13 @@ const googleAuth = asyncHandler(async (req: Request, res: Response) => {
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000
+    })
 
     return res.status(200).json(new ApiResponse(200, "Google authentication successful", { email, accessToken }));
 })
@@ -234,10 +260,26 @@ const refreshAccessToken = asyncHandler(async (req: Request, res: Response) => {
     const newAccessToken = jwt.sign(
         { email: user.email, name: user.name, google_id: user.google_id },
         process.env.ACCESS_TOKEN_SECRET as string,
-        { expiresIn: "15m" }
+        { expiresIn: "1h" }
     );
 
     return res.json(200).json(new ApiResponse(201, "New AccessToken is Created", { accessToken: newAccessToken }));
 })
 
-export { generateOTP, googleAuth, registerUser, loginUser, refreshAccessToken };
+const logoutUser = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?._id;
+
+    await userModel.findByIdAndUpdate(userId, {
+        $or: { refreshToken: undefined }
+    });
+
+    res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
+
+    return res.status(200).json(new ApiResponse(200, "Logged out successfully"));
+})
+
+export { generateOTP, googleAuth, registerUser, loginUser, refreshAccessToken, logoutUser };

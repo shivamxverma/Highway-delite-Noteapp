@@ -1,42 +1,93 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import { createContext, useContext, useMemo, useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
+import { jwtDecode } from "jwt-decode";
+import { supabase } from "../api/supabase";
 
-interface AuthContextType {
-  accessToken: string | null;
-  setAccessToken: (token: string | null) => void;
-  refreshAccessToken: () => Promise<void>;
-}
+type JwtPayload = {
+  _id: string;
+  name: string;
+  email: string;
+  [key: string]: unknown;
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+type User = {
+  id: string;
+  name : string;
+  email : string;
+} | null;
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+type AuthContextType = {
+  user: User;
+  loading: boolean;
+  login: (token: string) => void;
+  logout: () => Promise<void>;
+};
 
-  const refreshAccessToken = async () => {
+const AuthCtx = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  login: () => {},
+  logout: async () => {},
+});
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User>(null);
+  const [loading, setLoading] = useState(true);
+
+  const setUserFromToken = useCallback((token: string) => {
     try {
-      const res = await axios.get("http://localhost:8000/api/v1/users/refresh", {
-        withCredentials: true, 
-      });
-      setAccessToken(res.data.accessToken);
-    } catch (err) {
-      console.error("Failed to refresh access token", err);
-      setAccessToken(null);
+      const payload = jwtDecode<JwtPayload>(token);
+      setUser({ id: payload._id , name: payload.name , email : payload.email});
+      localStorage.setItem("accessToken", token);
+    } catch (error) {
+      console.error("Failed to decode token:", error);
+      setUser(null);
+      localStorage.removeItem("accessToken");
     }
-  };
-
-  useEffect(() => {
-    refreshAccessToken();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ accessToken, setAccessToken, refreshAccessToken }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  useEffect(() => {
+    const localToken = localStorage.getItem("accessToken");
+    if (localToken) {
+      setUserFromToken(localToken);
+    }
+    setLoading(false);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
-};
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const token = session?.access_token;
+          if (token) {
+            setUserFromToken(token);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          localStorage.removeItem("accessToken");
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [setUserFromToken]);
+
+  const login = (token: string) => {
+    setUserFromToken(token);
+  };
+  
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("accessToken");
+    setUser(null);
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, loading, login, logout }),
+    [user, loading, logout]
+  );
+
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+}
+
+export const useAuth = () => useContext(AuthCtx);

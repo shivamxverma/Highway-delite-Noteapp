@@ -1,6 +1,6 @@
 import { ApiError } from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import type { Request, Response, NextFunction } from 'express';
 import type { IUser } from '../models/user.model.js';
@@ -25,7 +25,11 @@ export const verifyJWT = asyncHandler(async (req: Request, res: Response, next: 
         }
 
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
-        const userId = typeof decodedToken === 'object' && '_id' in decodedToken ? (decodedToken as any)._id : undefined;
+
+        let userId: string | undefined;
+        if (typeof decodedToken === 'object' && decodedToken !== null && '_id' in decodedToken) {
+            userId = (decodedToken as JwtPayload)._id as string;
+        }
         if (!userId) {
             throw new ApiError(401, 'Invalid Access Token: No user ID found');
         }

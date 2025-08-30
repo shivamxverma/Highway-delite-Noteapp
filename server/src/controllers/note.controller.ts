@@ -43,6 +43,7 @@ const deleteNotes = asyncHandler(async(req,res) => {
 })
 
 const getAllnotes = asyncHandler(async(_, res) => {
+    console.log("Fetching all notes...");
     const notes = await noteModel.find();
 
     if(!notes){

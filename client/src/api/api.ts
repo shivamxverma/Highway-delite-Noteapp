@@ -1,43 +1,52 @@
 import axios from "axios";
+import { supabase } from './supabase';
 
-// const accessToken = localStorage.getItem("accessToken");
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  withCredentials: true,
+});
 
-const BASE_URL = "http://localhost:8000/api/v1"; 
+apiClient.interceptors.request.use(async (config) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || localStorage.getItem("accessToken");
 
-export const googleLogin = async(idToken : string) => {
-    return axios.post(`${BASE_URL}/users/auth/google`, { idToken }, { withCredentials: true });
-}
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
-export const generateOTP = async(email : string) => {
-    return axios.post(`${BASE_URL}/users/generateotp`, { email }, { withCredentials: true });
-}
+export const googleLogin = (idToken: string) => {
+  return axios.post(`${import.meta.env.VITE_API_BASE_URL}/users/auth/google`, { idToken }, { withCredentials: true });
+};
 
-export const register = async(email : string,name : string, dob : Date,otp : string) => {
-    return axios.post(`${BASE_URL}/users/register`, { email,name,dob ,otp}, { withCredentials: true });
-}
+export const generateOTP = (email: string) => {
+  return axios.post(`${import.meta.env.VITE_API_BASE_URL}/users/generateotp`, { email }, { withCredentials: true });
+};
 
-export const login = async(email : string, otp : string) => {
-    return axios.post(`${BASE_URL}/users/login`, { email,otp }, { withCredentials: true });
-}
+export const register = (email: string, name: string, dob: Date, otp: string) => {
+  return axios.post(`${import.meta.env.VITE_API_BASE_URL}/users/register`, { email, name, dob, otp }, { withCredentials: true });
+};
 
-export const logout = async() => {
-    return axios.post(`${BASE_URL}/users/logout`, {}, { withCredentials: true });
-}
+export const login = (email: string, otp: string) => {
+  return axios.post(`${import.meta.env.VITE_API_BASE_URL}/users/login`, { email, otp }, { withCredentials: true });
+};
 
-export const getNotes = async(accessToken : string) => {
-    return axios.get(`${BASE_URL}/notes`, { 
-        headers: {
-            Authorization: `Bearer ${accessToken}`
-        },
-        withCredentials: true 
-    });
-}
+export const logout = () => {
+  return apiClient.post("/users/logout", {});
+};
 
-export const createNote = async(accessToken : string, title: string, description: string) => {
-    return axios.post(`${BASE_URL}/notes`, { title, description }, { 
-        headers: {
-            Authorization: `Bearer ${accessToken}`
-        },
-        withCredentials: true 
-    });
-}
+export const getNotes = () => {
+  return apiClient.get("/notes");
+};
+
+export const createNote = (title: string, description: string) => {
+  return apiClient.post("/notes", { title, description });
+};
+
+export const deleteNote = (id: number) => {
+  return apiClient.delete(`/notes/${id}`);
+};

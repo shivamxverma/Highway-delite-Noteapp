@@ -30,6 +30,4 @@ const noteSchema = new Schema({
     }
 })
 
-noteSchema.index({ title: 1 });
-
 export default mongoose.model<INote>("Note", noteSchema);
